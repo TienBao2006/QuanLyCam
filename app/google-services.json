@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "422582564546",
+    "project_id": "quanlycam",
+    "storage_bucket": "quanlycam.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:422582564546:android:c363a8fa4b8cb2926fad5b",
+        "android_client_info": {
+          "package_name": "com.example.quanlycam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDs0p5AY1Lt8mlQcxVjdK6aXD-w5tnb2uw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
