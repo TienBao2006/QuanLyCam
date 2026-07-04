@@ -62,7 +62,7 @@ fun AppNavigation(quanLyNhapVm: QuanLyNhapCamViewModel) {
                         }
                     }
                 },
-                vmNhap = quanLyNhapVm
+
             )
         }
         composable("nhap") {

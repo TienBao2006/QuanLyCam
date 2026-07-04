@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
+import com.example.quanlycam.data.model.PhieuNhapCam
 import com.example.quanlycam.viewmodel.PhieuNhapCamViewModel
 
 // --- BẢNG MÀU CHUẨN THEO DESIGN IMAGE_754464.PNG ---
@@ -48,6 +49,8 @@ fun DanhSachNhapCamScreen(
     vm: PhieuNhapCamViewModel = viewModel()
 ){
     val danhSachDonHang by vm.list.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var phieuCanXoa by remember { mutableStateOf<PhieuNhapCam?>(null) }
 
     Scaffold(
         topBar = {
@@ -262,13 +265,13 @@ fun DanhSachNhapCamScreen(
 
                                 IconButton(
                                     onClick = {
-                                        vm.xoa(phieu.id)
-                                        // TODO: xóa
+                                        phieuCanXoa = phieu
+                                        showDeleteDialog = true
                                     }
                                 ) {
                                     Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = null,
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Xóa",
                                         tint = OrangeText
                                     )
                                 }
@@ -372,7 +375,53 @@ fun DanhSachNhapCamScreen(
             item { Spacer(modifier = Modifier.height(20.dp)) }
         }
     }
+    if (showDeleteDialog && phieuCanXoa != null) {
+
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+            },
+
+            title = {
+                Text("Xác nhận")
+            },
+
+            text = {
+                Text(
+                    "Bạn có chắc chắn muốn xóa phiếu nhập\n\"${phieuCanXoa?.tenLoaiCam}\" không?"
+                )
+            },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        phieuCanXoa?.let {
+                            vm.xoa(it.id)
+                        }
+
+                        phieuCanXoa = null
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Xóa", color = Color.Red)
+                }
+            },
+
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        phieuCanXoa = null
+                    }
+                ) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 }
+
+
 
 @Preview(showBackground = true)
 @Composable

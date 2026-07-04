@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +51,32 @@ fun QuanLyNhapCamScreen(
     var soLuong by remember { mutableStateOf("") }
     var ngayNhap by remember { mutableStateOf("") }
     var ghiChu by remember { mutableStateOf("") }
+
+    // DatePicker state
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis()
+    )
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        ngayNhap = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                            .format(Date(millis))
+                    }
+                    showDatePicker = false
+                }) { Text("Chọn") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Hủy") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     val dangLuu by vm.dangLuu.collectAsStateWithLifecycle()
     val luuThanhCong by vm.luuThanhCong.collectAsStateWithLifecycle()
@@ -247,14 +276,21 @@ fun QuanLyNhapCamScreen(
 
             // Ngày nhập
             Text("Ngày nhập", fontWeight = FontWeight.Bold)
-            OutlinedTextField(
-                value = ngayNhap,
-                onValueChange = { ngayNhap = it },
+            OutlinedButton(
+                onClick = { showDatePicker = true },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("dd/MM/yyyy") },
-                trailingIcon = { Icon(Icons.Default.CalendarMonth, null) },
-                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = QlGrayBorder)
-            )
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, QlGrayBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = if (ngayNhap.isBlank()) QlGrayText else Color.Black)
+            ) {
+                Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (ngayNhap.isBlank()) "Chọn ngày nhập" else ngayNhap,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
             // Ghi chú
             Text("Ghi chú", fontWeight = FontWeight.Bold)
