@@ -39,4 +39,19 @@ suspend fun sua(phieu: PhieuNhapCam): Result<Unit> = runCatching {
     suspend fun xoa(id: String): Result<Unit> = runCatching {
         db.document(id).delete().await()
     }
+    suspend fun getById(id: String): PhieuNhapCam? {
+        return db.document(id)
+            .get()
+            .await()
+            .toObject(PhieuNhapCam::class.java)
+            ?.copy(id = id)
+    }
+    suspend fun capNhat(phieu: PhieuNhapCam): Result<Unit> = runCatching {
+
+        db.document(phieu.id)
+            .set(phieu)
+            .await()
+
+    }
+
 }

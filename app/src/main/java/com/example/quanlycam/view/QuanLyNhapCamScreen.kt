@@ -11,9 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +26,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.quanlycam.ui.theme.QuanLyCamTheme
 import com.example.quanlycam.viewmodel.DanhMucLoaiCamViewModel
 import com.example.quanlycam.viewmodel.QuanLyNhapCamViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val QlDarkGreen = Color(0xFF114D35)
 private val QlGrayBorder = Color(0xFFD6D6D6)
@@ -41,22 +41,31 @@ fun QuanLyNhapCamScreen(
     vm: QuanLyNhapCamViewModel = viewModel(),
     vmLoai: DanhMucLoaiCamViewModel = viewModel()
 ) {
-    // Danh sách loại cám từ Firebase để hiển thị dropdown
     val danhSachLoai by vmLoai.danhSach.collectAsStateWithLifecycle()
+    val dangLuu by vm.dangLuu.collectAsStateWithLifecycle()
+    val luuThanhCong by vm.luuThanhCong.collectAsStateWithLifecycle()
+    val loi by vm.loi.collectAsStateWithLifecycle()
+    val phieuDangSua by vm.phieuDangSua.collectAsStateWithLifecycle()
 
-    var loaiCamChon by remember { mutableStateOf("") }   // tenLoaiCam được chọn
-    var maLoaiCamChon by remember { mutableStateOf("") } // maTag được chọn
+    // Khởi tạo form với dữ liệu phiếu đang sửa (nếu có), chạy đúng 1 lần
+    var loaiCamChon by remember { mutableStateOf(phieuDangSua?.tenLoaiCam ?: "") }
+    var maLoaiCamChon by remember { mutableStateOf(phieuDangSua?.maLoaiCam ?: "") }
+    var soLuong by remember { mutableStateOf(phieuDangSua?.soLuong?.toString() ?: "") }
+    var ngayNhap by remember { mutableStateOf(phieuDangSua?.ngayNhap ?: "") }
+    var ghiChu by remember { mutableStateOf(phieuDangSua?.ghiChu ?: "") }
     var dropdownMo by remember { mutableStateOf(false) }
 
-    var soLuong by remember { mutableStateOf("") }
-    var ngayNhap by remember { mutableStateOf("") }
-    var ghiChu by remember { mutableStateOf("") }
-
-    // DatePicker state
+    // DatePicker — khởi tạo millis từ ngày phiếu đang sửa nếu có
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
+    val initialMillis = remember {
+        val existingDate = phieuDangSua?.ngayNhap
+        if (!existingDate.isNullOrBlank()) {
+            runCatching {
+                SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).parse(existingDate)?.time
+            }.getOrNull() ?: System.currentTimeMillis()
+        } else System.currentTimeMillis()
+    }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -78,28 +87,9 @@ fun QuanLyNhapCamScreen(
         }
     }
 
-    val dangLuu by vm.dangLuu.collectAsStateWithLifecycle()
-    val luuThanhCong by vm.luuThanhCong.collectAsStateWithLifecycle()
-    val loi by vm.loi.collectAsStateWithLifecycle()
-    val phieuDangSua by vm.phieuDangSua.collectAsStateWithLifecycle()
-
-    // Load dữ liệu vào form khi đang sửa
-    LaunchedEffect(phieuDangSua) {
-        phieuDangSua?.let { p ->
-            loaiCamChon = p.tenLoaiCam
-            maLoaiCamChon = p.maLoaiCam
-            soLuong = p.soLuong.toString()
-            ngayNhap = p.ngayNhap
-            ghiChu = p.ghiChu
-        }
-    }
-
     LaunchedEffect(luuThanhCong) {
         if (luuThanhCong) {
             vm.resetTrangThai()
-            // Reset form
-            loaiCamChon = ""; maLoaiCamChon = ""
-            soLuong = ""; ngayNhap = ""; ghiChu = ""
             onNavigate("danhsach")
         }
     }
@@ -108,10 +98,16 @@ fun QuanLyNhapCamScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Quản lý nhập cám", color = QlDarkGreen, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (phieuDangSua != null) "Chỉnh sửa phiếu" else "Quản lý nhập cám",
+                        color = QlDarkGreen, fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { onNavigate("danhsach") }) {
+                    IconButton(onClick = {
+                        vm.resetTrangThai()
+                        onNavigate("danhsach")
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = QlDarkGreen)
                     }
                 },
@@ -136,11 +132,12 @@ fun QuanLyNhapCamScreen(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            loaiCamChon = ""; maLoaiCamChon = ""
-                            soLuong = ""; ngayNhap = ""; ghiChu = ""
+                            vm.resetTrangThai()
                             onNavigate("danhsach")
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
                         border = BorderStroke(1.dp, QlDarkGreen)
                     ) { Text("Hủy") }
 
@@ -155,7 +152,9 @@ fun QuanLyNhapCamScreen(
                             )
                         },
                         enabled = !dangLuu,
-                        modifier = Modifier.weight(2f).height(48.dp),
+                        modifier = Modifier
+                            .weight(2f)
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = QlDarkGreen)
                     ) {
                         if (dangLuu) {
@@ -216,7 +215,7 @@ fun QuanLyNhapCamScreen(
                 }
             }
 
-            // Dropdown chọn loại cám từ Firebase
+            // Dropdown loại cám
             Text("Loại cám", fontWeight = FontWeight.Bold)
             ExposedDropdownMenuBox(
                 expanded = dropdownMo,
@@ -230,9 +229,7 @@ fun QuanLyNhapCamScreen(
                         .menuAnchor()
                         .fillMaxWidth(),
                     placeholder = { Text("Chọn loại cám", color = QlGrayText) },
-                    trailingIcon = {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
-                    },
+                    trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null) },
                     colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = QlGrayBorder)
                 )
                 ExposedDropdownMenu(
@@ -274,14 +271,18 @@ fun QuanLyNhapCamScreen(
                 colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = QlGrayBorder)
             )
 
-            // Ngày nhập
+            // Ngày nhập — mở DatePickerDialog
             Text("Ngày nhập", fontWeight = FontWeight.Bold)
             OutlinedButton(
                 onClick = { showDatePicker = true },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 shape = RoundedCornerShape(4.dp),
                 border = BorderStroke(1.dp, QlGrayBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = if (ngayNhap.isBlank()) QlGrayText else Color.Black)
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = if (ngayNhap.isBlank()) QlGrayText else Color.Black
+                )
             ) {
                 Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))

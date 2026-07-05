@@ -7,6 +7,9 @@ import com.example.quanlycam.data.repository.PhieuNhapCamRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class QuanLyNhapCamViewModel(
     private val repo: PhieuNhapCamRepository = PhieuNhapCamRepository()
@@ -60,8 +63,10 @@ class QuanLyNhapCamViewModel(
                 result.onSuccess { _luuThanhCong.value = true }
                 result.onFailure { _loi.value = "Lỗi cập nhật: ${it.message}" }
             } else {
-                // Tạo phiếu mới
+                // Tạo phiếu mới với mã tự động theo ngày giờ phút giây
+                val maPhieu = "PN-" + SimpleDateFormat("ddMMyyyy-HHmmss", Locale.getDefault()).format(Date())
                 val phieu = PhieuNhapCam(
+                    maPhieu ,
                     maLoaiCam = maLoaiCam,
                     tenLoaiCam = tenLoaiCam,
                     soLuong = soLuongInt,

@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.quanlycam.ui.theme.QuanLyCamTheme
 import com.example.quanlycam.view.DanhMucLoaiCamScreen
 import com.example.quanlycam.view.DanhSachNhapCamScreen
@@ -44,7 +43,10 @@ fun AppNavigation(quanLyNhapVm: QuanLyNhapCamViewModel) {
         }
         composable("danhmuc") {
             DanhMucLoaiCamScreen(
-                onNavigate = { route -> navController.navigate(route) }
+                onNavigate = { route -> navController.navigate(route) {
+                    popUpTo("danhmuc") { inclusive = true }
+                    launchSingleTop = true
+                }}
             )
         }
         composable("danhsach") {
@@ -54,26 +56,19 @@ fun AppNavigation(quanLyNhapVm: QuanLyNhapCamViewModel) {
                         navController.navigate("nhap")
                     } else {
                         navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
+                            popUpTo("danhsach") { inclusive = true }
                             launchSingleTop = true
-                            restoreState = true
                         }
                     }
                 },
-
+                vmNhap = quanLyNhapVm
             )
         }
         composable("nhap") {
             QuanLyNhapCamScreen(
                 onNavigate = { route ->
-                    if (navController.previousBackStackEntry?.destination?.route == route) {
-                        navController.popBackStack()
-                    } else {
-                        navController.navigate(route) {
-                            popUpTo("nhap") { inclusive = true }
-                        }
+                    navController.navigate(route) {
+                        popUpTo("nhap") { inclusive = true }
                     }
                 },
                 vm = quanLyNhapVm
@@ -81,7 +76,10 @@ fun AppNavigation(quanLyNhapVm: QuanLyNhapCamViewModel) {
         }
         composable("thongke") {
             ThongKeCamScreen(
-                onNavigate = { route -> navController.navigate(route) }
+                onNavigate = { route -> navController.navigate(route) {
+                    popUpTo("thongke") { inclusive = true }
+                    launchSingleTop = true
+                }}
             )
         }
     }

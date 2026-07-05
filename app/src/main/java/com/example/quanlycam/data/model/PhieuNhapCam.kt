@@ -2,6 +2,7 @@ package com.example.quanlycam.data.model
 
 data class PhieuNhapCam(
     val id: String = "",
+    val maPhieu: String = "",
     val maLoaiCam: String = "",
     val tenLoaiCam: String = "",
     val soLuong: Int = 0,

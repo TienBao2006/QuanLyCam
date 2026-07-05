@@ -1,4 +1,4 @@
-package com.example.quanlycam.view
+﻿package com.example.quanlycam.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -125,39 +125,7 @@ fun DanhMucLoaiCamScreen(
             }
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = Color(0xFFF3F4F6),
-                modifier = Modifier.border(1.dp, GrayBorder)
-            ) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Trang chủ", fontSize = 11.sp) },
-                    selected = true,
-                    colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = ActiveBlue,
-                        selectedIconColor = Color.White
-                    ),
-                    onClick = {}
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.List, contentDescription = null) },
-                    label = { Text("Danh sách", fontSize = 11.sp) },
-                    selected = false,
-                    onClick = { onNavigate("danhsach") }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
-                    label = { Text("Thống kê", fontSize = 11.sp) },
-                    selected = false,
-                    onClick = { onNavigate("thongke") }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    label = { Text("Cá nhân", fontSize = 11.sp) },
-                    selected = false,
-                    onClick = {}
-                )
-            }
+            AppBottomBar(current = BottomTab.LOAI_CAM, onNavigate = onNavigate)
         }
     ) { innerPadding ->
         LazyColumn(

@@ -44,4 +44,10 @@ class PhieuNhapCamViewModel : ViewModel() {
             }
         }
     }
+    fun capNhat(phieu: PhieuNhapCam) {
+        viewModelScope.launch {
+            repository.capNhat(phieu)
+        }
+    }
+
 }
