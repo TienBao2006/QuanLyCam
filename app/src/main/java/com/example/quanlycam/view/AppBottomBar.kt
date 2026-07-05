@@ -76,7 +76,7 @@ fun AppBottomBar(
                 ),
                 onClick = {
                     when (item.tab) {
-                        BottomTab.TRANG_CHU -> { /* rỗng */ }
+                        BottomTab.TRANG_CHU -> onNavigate("trangchu")
                         BottomTab.LOAI_CAM  -> onNavigate("danhmuc")
                         BottomTab.DANH_SACH -> onNavigate("danhsach")
                         BottomTab.THONG_KE  -> onNavigate("thongke")

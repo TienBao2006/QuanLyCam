@@ -64,12 +64,15 @@ class ThongKeViewModel(
     }
 
     fun datLocNgay(tuNgay: Calendar, denNgay: Calendar) {
-        // đảm bảo denNgay kết thúc cuối ngày
-        val den = denNgay.clone() as Calendar
-        den.set(Calendar.HOUR_OF_DAY, 23)
-        den.set(Calendar.MINUTE, 59)
-        den.set(Calendar.SECOND, 59)
-        _tuNgay.value = tuNgay
+        val tu = (tuNgay.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val den = (denNgay.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+        }
+        _tuNgay.value = tu
         _denNgay.value = den
         _dungLocNgay.value = true
     }
@@ -82,10 +85,14 @@ class ThongKeViewModel(
 
     private fun tinhThongKeTheoNgay(list: List<PhieuNhapCam>, tuNgay: Calendar, denNgay: Calendar): ThongKeData {
         val fmt = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+
+        // Chuẩn hóa tuNgay/denNgay về đầu/cuối ngày để tránh lệch giờ
+        val tuCal = tuNgay.normalized(startOfDay = true)
+        val denCal = denNgay.normalized(startOfDay = false)
+
         val phieuLoc = list.filter { p ->
-            val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
-            val cal = Calendar.getInstance().apply { time = date }
-            !cal.before(tuNgay) && !cal.after(denNgay)
+            val cal = p.toCalendar(fmt) ?: return@filter false
+            !cal.before(tuCal) && !cal.after(denCal)
         }
         val tongSoLuong = phieuLoc.sumOf { it.soLuong }
         val phanBo = phieuLoc
@@ -93,31 +100,25 @@ class ThongKeViewModel(
             .map { (ten, phieus) -> ten to phieus.sumOf { it.soLuong } }
             .sortedByDescending { it.second }
 
-        // Biến động tuần trong khoảng ngày đã chọn
-        val soNgay = ((denNgay.timeInMillis - tuNgay.timeInMillis) / (1000 * 60 * 60 * 24)).toInt() + 1
+        val soNgay = ((denCal.timeInMillis - tuCal.timeInMillis) / 86_400_000L).toInt() + 1
         val bienDong = if (soNgay <= 31) {
-            // Chia 4 phần đều nhau
-            val buoc = soNgay / 4.coerceAtLeast(1)
+            val buoc = (soNgay / 4).coerceAtLeast(1)
             (0 until 4).map { i ->
                 val start = Calendar.getInstance().apply {
-                    timeInMillis = tuNgay.timeInMillis
+                    timeInMillis = tuCal.timeInMillis
                     add(Calendar.DAY_OF_YEAR, i * buoc)
-                }
+                }.normalized(startOfDay = true)
                 val end = if (i < 3) Calendar.getInstance().apply {
-                    timeInMillis = tuNgay.timeInMillis
+                    timeInMillis = tuCal.timeInMillis
                     add(Calendar.DAY_OF_YEAR, (i + 1) * buoc - 1)
-                    set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59)
-                } else denNgay
+                }.normalized(startOfDay = false) else denCal
 
                 phieuLoc.filter { p ->
-                    val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
-                    val cal = Calendar.getInstance().apply { time = date }
+                    val cal = p.toCalendar(fmt) ?: return@filter false
                     !cal.before(start) && !cal.after(end)
                 }.sumOf { it.soLuong }
             }
-        } else {
-            listOf(0, 0, 0, 0)
-        }
+        } else listOf(0, 0, 0, 0)
 
         return ThongKeData(
             tongSoLuong = tongSoLuong,
@@ -193,5 +194,27 @@ class ThongKeViewModel(
             bienDongTuan = bienDong,
             soLuongKyTruoc = phieuKyTruoc.sumOf { it.soLuong }
         )
+    }
+}
+
+// Chuẩn hóa Calendar về đầu ngày (00:00:00) hoặc cuối ngày (23:59:59)
+private fun Calendar.normalized(startOfDay: Boolean): Calendar =
+    (this.clone() as Calendar).apply {
+        if (startOfDay) {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        } else {
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+        }
+    }
+
+// Parse ngày phiếu về Calendar chuẩn hóa đầu ngày
+private fun PhieuNhapCam.toCalendar(fmt: SimpleDateFormat): Calendar? {
+    val date = runCatching { fmt.parse(this.ngayNhap) }.getOrNull() ?: return null
+    return Calendar.getInstance().apply {
+        time = date
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }
 }

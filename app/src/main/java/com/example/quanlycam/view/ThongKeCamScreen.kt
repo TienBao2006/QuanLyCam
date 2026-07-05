@@ -220,10 +220,12 @@ fun ThongKeCamScreen(
                     }
                 }
 
-                // Nút áp dụng (chỉ hiện khi đã chọn cả 2 ngày tạm thời)
-                if (tempTuNgay != null && tempDenNgay != null) {
+                // Nút áp dụng: hiện khi có đủ cả 2 ngày (tạm thời hoặc đã lưu trước đó)
+                val finalTuNgay = tempTuNgay ?: tuNgay
+                val finalDenNgay = tempDenNgay ?: denNgay
+                if (finalTuNgay != null && finalDenNgay != null) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    val hopLe = !tempTuNgay!!.after(tempDenNgay!!)
+                    val hopLe = !finalTuNgay.after(finalDenNgay)
                     if (!hopLe) {
                         Text("Từ ngày phải nhỏ hơn hoặc bằng đến ngày", fontSize = 12.sp, color = Color(0xFFC62828))
                         Spacer(modifier = Modifier.height(4.dp))
@@ -231,7 +233,7 @@ fun ThongKeCamScreen(
                     Button(
                         onClick = {
                             if (hopLe) {
-                                vm.datLocNgay(tempTuNgay!!, tempDenNgay!!)
+                                vm.datLocNgay(finalTuNgay, finalDenNgay)
                             }
                         },
                         enabled = hopLe,
@@ -241,7 +243,7 @@ fun ThongKeCamScreen(
                     ) {
                         Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Áp dụng", fontSize = 14.sp)
+                        Text("Tìm", fontSize = 14.sp)
                     }
                 }
             }
