@@ -1,5 +1,6 @@
 ﻿package com.example.quanlycam.view
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,7 +33,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.quanlycam.ui.theme.*
 import com.example.quanlycam.viewmodel.ThongKeViewModel
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,15 +46,41 @@ fun ThongKeCamScreen(
     val kyChon by vm.kyChon.collectAsStateWithLifecycle()
     val tk by vm.thongKe.collectAsStateWithLifecycle()
     val loi by vm.loi.collectAsStateWithLifecycle()
+    val dungLocNgay by vm.dungLocNgay.collectAsStateWithLifecycle()
+    val tuNgay by vm.tuNgay.collectAsStateWithLifecycle()
+    val denNgay by vm.denNgay.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val fmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
     val now = remember { Calendar.getInstance() }
-    val tenKy = when (kyChon) {
-        0 -> "Tháng ${now.get(Calendar.MONTH) + 1}/${now.get(Calendar.YEAR)}"
-        1 -> "Quý ${now.get(Calendar.MONTH) / 3 + 1}/${now.get(Calendar.YEAR)}"
-        2 -> "Năm ${now.get(Calendar.YEAR)}"
-        else -> ""
+    val tenKy = when {
+        dungLocNgay && tuNgay != null && denNgay != null ->
+            "${fmt.format(tuNgay!!.time)} — ${fmt.format(denNgay!!.time)}"
+        kyChon == 0 -> "Tháng ${now.get(Calendar.MONTH) + 1}/${now.get(Calendar.YEAR)}"
+        kyChon == 1 -> "Quý ${now.get(Calendar.MONTH) / 3 + 1}/${now.get(Calendar.YEAR)}"
+        else -> "Năm ${now.get(Calendar.YEAR)}"
     }
+
     val maxBienDong = remember(tk.bienDongTuan) { tk.bienDongTuan.maxOrNull()?.takeIf { it > 0 } ?: 1 }
+
+    // State lưu ngày đang chọn tạm thời
+    var tempTuNgay by remember { mutableStateOf<Calendar?>(null) }
+    var tempDenNgay by remember { mutableStateOf<Calendar?>(null) }
+
+    // Helper mở DatePicker
+    fun showDatePicker(initial: Calendar, onPicked: (Calendar) -> Unit) {
+        DatePickerDialog(
+            context,
+            { _, y, m, d ->
+                val cal = Calendar.getInstance().apply { set(y, m, d) }
+                onPicked(cal)
+            },
+            initial.get(Calendar.YEAR),
+            initial.get(Calendar.MONTH),
+            initial.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
 
     Scaffold(
         topBar = {
@@ -101,11 +131,117 @@ fun ThongKeCamScreen(
                     Box(
                         modifier = Modifier.weight(1f).height(36.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(if (kyChon == index) DarkGreen else Color.Transparent)
+                            .background(if (kyChon == index && !dungLocNgay) DarkGreen else Color.Transparent)
                             .clickable { vm.chonKy(index) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, fontWeight = FontWeight.Bold, color = if (kyChon == index) Color.White else Color.Black, fontSize = 14.sp)
+                        Text(label, fontWeight = FontWeight.Bold, color = if (kyChon == index && !dungLocNgay) Color.White else Color.Black, fontSize = 14.sp)
+                    }
+                }
+            }
+
+            // Bộ lọc theo khoảng ngày
+            ThongKeCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Lọc theo khoảng ngày", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    if (dungLocNgay) {
+                        TextButton(
+                            onClick = {
+                                tempTuNgay = null
+                                tempDenNgay = null
+                                vm.xoaLocNgay()
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text("Xóa lọc", color = Color(0xFFC62828), fontSize = 12.sp)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Nút chọn từ ngày
+                    OutlinedButton(
+                        onClick = {
+                            val init = tempTuNgay ?: tuNgay ?: Calendar.getInstance().apply {
+                                set(Calendar.DAY_OF_MONTH, 1)
+                            }
+                            showDatePicker(init) { tempTuNgay = it }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DarkGreen),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Từ ngày", fontSize = 11.sp, color = GrayText)
+                            Text(
+                                text = tempTuNgay?.let { fmt.format(it.time) }
+                                    ?: tuNgay?.let { fmt.format(it.time) }
+                                    ?: "Chọn ngày",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (tempTuNgay != null || tuNgay != null) DarkGreen else GrayText
+                            )
+                        }
+                    }
+
+                    Text("→", fontSize = 16.sp, color = GrayText)
+
+                    // Nút chọn đến ngày
+                    OutlinedButton(
+                        onClick = {
+                            val init = tempDenNgay ?: denNgay ?: Calendar.getInstance()
+                            showDatePicker(init) { tempDenNgay = it }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DarkGreen),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Đến ngày", fontSize = 11.sp, color = GrayText)
+                            Text(
+                                text = tempDenNgay?.let { fmt.format(it.time) }
+                                    ?: denNgay?.let { fmt.format(it.time) }
+                                    ?: "Chọn ngày",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (tempDenNgay != null || denNgay != null) DarkGreen else GrayText
+                            )
+                        }
+                    }
+                }
+
+                // Nút áp dụng (chỉ hiện khi đã chọn cả 2 ngày tạm thời)
+                if (tempTuNgay != null && tempDenNgay != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val hopLe = !tempTuNgay!!.after(tempDenNgay!!)
+                    if (!hopLe) {
+                        Text("Từ ngày phải nhỏ hơn hoặc bằng đến ngày", fontSize = 12.sp, color = Color(0xFFC62828))
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    Button(
+                        onClick = {
+                            if (hopLe) {
+                                vm.datLocNgay(tempTuNgay!!, tempDenNgay!!)
+                            }
+                        },
+                        enabled = hopLe,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkGreen)
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Áp dụng", fontSize = 14.sp)
                     }
                 }
             }
@@ -127,26 +263,29 @@ fun ThongKeCamScreen(
                         Text("${tk.tongPhieu} phiếu", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DarkGreen)
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                val diff = tk.tongSoLuong - tk.soLuongKyTruoc
-                val diffText = when {
-                    tk.soLuongKyTruoc == 0 -> "Chưa có dữ liệu kỳ trước"
-                    diff > 0 -> "▲ Tăng ${formatSoLuong(diff)} bao so với kỳ trước"
-                    diff < 0 -> "▼ Giảm ${formatSoLuong(-diff)} bao so với kỳ trước"
-                    else -> "Ổn định so với kỳ trước"
+                if (!dungLocNgay) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val diff = tk.tongSoLuong - tk.soLuongKyTruoc
+                    val diffText = when {
+                        tk.soLuongKyTruoc == 0 -> "Chưa có dữ liệu kỳ trước"
+                        diff > 0 -> "▲ Tăng ${formatSoLuong(diff)} bao so với kỳ trước"
+                        diff < 0 -> "▼ Giảm ${formatSoLuong(-diff)} bao so với kỳ trước"
+                        else -> "Ổn định so với kỳ trước"
+                    }
+                    Text(diffText, fontSize = 12.sp, color = when {
+                        diff > 0 -> Color(0xFF2E7D32); diff < 0 -> Color(0xFFC62828); else -> GrayText
+                    })
                 }
-                Text(diffText, fontSize = 12.sp, color = when {
-                    diff > 0 -> Color(0xFF2E7D32); diff < 0 -> Color(0xFFC62828); else -> GrayText
-                })
             }
 
-            // Biểu đồ cột tuần (chỉ hiện khi xem tháng)
-            if (kyChon == 0) {
+            // Biểu đồ cột tuần
+            if (kyChon == 0 || dungLocNgay) {
                 ThongKeCard {
-                    Text("Biến động theo tuần — $tenKy", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    val chartLabel = if (dungLocNgay) "Biến động theo khoảng thời gian" else "Biến động theo tuần — $tenKy"
+                    Text(chartLabel, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(12.dp))
                     if (tk.bienDongTuan.all { it == 0 }) {
-                        Text("Không có dữ liệu trong tháng này", fontSize = 13.sp, color = GrayText, modifier = Modifier.padding(vertical = 8.dp))
+                        Text("Không có dữ liệu trong khoảng thời gian này", fontSize = 13.sp, color = GrayText, modifier = Modifier.padding(vertical = 8.dp))
                     } else {
                         Row(modifier = Modifier.fillMaxWidth().height(80.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                             tk.bienDongTuan.forEach { value ->
@@ -159,7 +298,7 @@ fun ThongKeCamScreen(
                             }
                         }
                         Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            listOf("Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4").forEach { t ->
+                            listOf("Phần 1", "Phần 2", "Phần 3", "Phần 4").forEach { t ->
                                 Text(t, fontSize = 11.sp, color = GrayText, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                             }
                         }
@@ -188,7 +327,7 @@ fun ThongKeCamScreen(
                     }
                 }
                 Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    listOf("Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4").forEach { t ->
+                    listOf("Phần 1", "Phần 2", "Phần 3", "Phần 4").forEach { t ->
                         Text(t, fontSize = 11.sp, color = GrayText, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     }
                 }

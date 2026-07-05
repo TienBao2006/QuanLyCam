@@ -13,8 +13,8 @@ import java.util.Locale
 data class ThongKeData(
     val tongSoLuong: Int = 0,
     val tongPhieu: Int = 0,
-    val phanBoLoai: List<Pair<String, Int>> = emptyList(),   // tenLoaiCam -> soLuong
-    val bienDongTuan: List<Int> = emptyList(),               // 4 tuần, mỗi tuần tổng bao
+    val phanBoLoai: List<Pair<String, Int>> = emptyList(),
+    val bienDongTuan: List<Int> = emptyList(),
     val soLuongKyTruoc: Int = 0
 )
 
@@ -29,6 +29,17 @@ class ThongKeViewModel(
     private val _kyChon = MutableStateFlow(0)
     val kyChon: StateFlow<Int> = _kyChon
 
+    // Bộ lọc ngày tùy chỉnh (null = không dùng bộ lọc ngày)
+    private val _tuNgay = MutableStateFlow<Calendar?>(null)
+    val tuNgay: StateFlow<Calendar?> = _tuNgay
+
+    private val _denNgay = MutableStateFlow<Calendar?>(null)
+    val denNgay: StateFlow<Calendar?> = _denNgay
+
+    // true = đang dùng bộ lọc ngày tùy chỉnh
+    private val _dungLocNgay = MutableStateFlow(false)
+    val dungLocNgay: StateFlow<Boolean> = _dungLocNgay
+
     private val _tatCaPhieu: StateFlow<List<PhieuNhapCam>> = repo.getPhieuList()
         .catch { e ->
             Log.e("ThongKeVM", "Lỗi: ${e.message}", e)
@@ -37,17 +48,90 @@ class ThongKeViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val thongKe: StateFlow<ThongKeData> = combine(_tatCaPhieu, _kyChon) { list, ky ->
-        tinhThongKe(list, ky)
+    val thongKe: StateFlow<ThongKeData> = combine(
+        _tatCaPhieu, _kyChon, _tuNgay, _denNgay, _dungLocNgay
+    ) { list, ky, tuNgay, denNgay, dungLocNgay ->
+        if (dungLocNgay && tuNgay != null && denNgay != null) {
+            tinhThongKeTheoNgay(list, tuNgay, denNgay)
+        } else {
+            tinhThongKe(list, ky)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThongKeData())
 
-    fun chonKy(ky: Int) { _kyChon.value = ky }
+    fun chonKy(ky: Int) {
+        _kyChon.value = ky
+        _dungLocNgay.value = false
+    }
+
+    fun datLocNgay(tuNgay: Calendar, denNgay: Calendar) {
+        // đảm bảo denNgay kết thúc cuối ngày
+        val den = denNgay.clone() as Calendar
+        den.set(Calendar.HOUR_OF_DAY, 23)
+        den.set(Calendar.MINUTE, 59)
+        den.set(Calendar.SECOND, 59)
+        _tuNgay.value = tuNgay
+        _denNgay.value = den
+        _dungLocNgay.value = true
+    }
+
+    fun xoaLocNgay() {
+        _tuNgay.value = null
+        _denNgay.value = null
+        _dungLocNgay.value = false
+    }
+
+    private fun tinhThongKeTheoNgay(list: List<PhieuNhapCam>, tuNgay: Calendar, denNgay: Calendar): ThongKeData {
+        val fmt = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val phieuLoc = list.filter { p ->
+            val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
+            val cal = Calendar.getInstance().apply { time = date }
+            !cal.before(tuNgay) && !cal.after(denNgay)
+        }
+        val tongSoLuong = phieuLoc.sumOf { it.soLuong }
+        val phanBo = phieuLoc
+            .groupBy { it.tenLoaiCam }
+            .map { (ten, phieus) -> ten to phieus.sumOf { it.soLuong } }
+            .sortedByDescending { it.second }
+
+        // Biến động tuần trong khoảng ngày đã chọn
+        val soNgay = ((denNgay.timeInMillis - tuNgay.timeInMillis) / (1000 * 60 * 60 * 24)).toInt() + 1
+        val bienDong = if (soNgay <= 31) {
+            // Chia 4 phần đều nhau
+            val buoc = soNgay / 4.coerceAtLeast(1)
+            (0 until 4).map { i ->
+                val start = Calendar.getInstance().apply {
+                    timeInMillis = tuNgay.timeInMillis
+                    add(Calendar.DAY_OF_YEAR, i * buoc)
+                }
+                val end = if (i < 3) Calendar.getInstance().apply {
+                    timeInMillis = tuNgay.timeInMillis
+                    add(Calendar.DAY_OF_YEAR, (i + 1) * buoc - 1)
+                    set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59)
+                } else denNgay
+
+                phieuLoc.filter { p ->
+                    val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
+                    val cal = Calendar.getInstance().apply { time = date }
+                    !cal.before(start) && !cal.after(end)
+                }.sumOf { it.soLuong }
+            }
+        } else {
+            listOf(0, 0, 0, 0)
+        }
+
+        return ThongKeData(
+            tongSoLuong = tongSoLuong,
+            tongPhieu = phieuLoc.size,
+            phanBoLoai = phanBo,
+            bienDongTuan = bienDong,
+            soLuongKyTruoc = 0
+        )
+    }
 
     private fun tinhThongKe(list: List<PhieuNhapCam>, ky: Int): ThongKeData {
         val fmt = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val now = Calendar.getInstance()
 
-        // Lọc phiếu theo kỳ được chọn
         val phieuKyNay = list.filter { p ->
             val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
@@ -61,7 +145,6 @@ class ThongKeViewModel(
             }
         }
 
-        // Lọc phiếu kỳ trước để so sánh
         val phieuKyTruoc = list.filter { p ->
             val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
             val cal = Calendar.getInstance().apply { time = date }
@@ -83,24 +166,21 @@ class ThongKeViewModel(
         }
 
         val tongSoLuong = phieuKyNay.sumOf { it.soLuong }
-
-        // Phân bổ theo loại cám
         val phanBo = phieuKyNay
             .groupBy { it.tenLoaiCam }
             .map { (ten, phieus) -> ten to phieus.sumOf { it.soLuong } }
             .sortedByDescending { it.second }
 
-        // Biến động 4 tuần trong kỳ (chỉ hợp lý với kỳ = tháng)
         val bienDong = (1..4).map { tuan ->
             phieuKyNay.filter { p ->
                 val date = runCatching { fmt.parse(p.ngayNhap) }.getOrNull() ?: return@filter false
                 val cal = Calendar.getInstance().apply { time = date }
-                val ngayTrongThang = cal.get(Calendar.DAY_OF_MONTH)
+                val ngay = cal.get(Calendar.DAY_OF_MONTH)
                 when (tuan) {
-                    1 -> ngayTrongThang in 1..7
-                    2 -> ngayTrongThang in 8..14
-                    3 -> ngayTrongThang in 15..21
-                    4 -> ngayTrongThang >= 22
+                    1 -> ngay in 1..7
+                    2 -> ngay in 8..14
+                    3 -> ngay in 15..21
+                    4 -> ngay >= 22
                     else -> false
                 }
             }.sumOf { it.soLuong }

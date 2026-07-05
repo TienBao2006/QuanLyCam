@@ -12,7 +12,6 @@ import androidx.navigation.compose.rememberNavController
 import com.example.quanlycam.ui.theme.QuanLyCamTheme
 import com.example.quanlycam.view.DanhMucLoaiCamScreen
 import com.example.quanlycam.view.DanhSachNhapCamScreen
-import com.example.quanlycam.view.FirebaseTestScreen
 import com.example.quanlycam.view.QuanLyNhapCamScreen
 import com.example.quanlycam.view.ThongKeCamScreen
 import com.example.quanlycam.viewmodel.QuanLyNhapCamViewModel
@@ -37,10 +36,7 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(quanLyNhapVm: QuanLyNhapCamViewModel) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "firebasetest") {
-        composable("firebasetest") {
-            FirebaseTestScreen(onBack = { navController.navigate("danhsach") })
-        }
+    NavHost(navController = navController, startDestination = "danhsach") {
         composable("danhmuc") {
             DanhMucLoaiCamScreen(
                 onNavigate = { route -> navController.navigate(route) {
